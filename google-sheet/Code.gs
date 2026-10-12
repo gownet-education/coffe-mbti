@@ -2,7 +2,7 @@
  * COFFEE DNA 응답 수집용 Google Apps Script.
  * 설치 방법은 README.md의 "구글 시트 연결"을 따르세요.
  *  1) 이 내용을 Apps Script 편집기에 붙여 넣고 저장
- *  2) setup 함수를 한 번 실행 (응답·통계 탭 생성)
+ *  2) setup 함수를 실행 (응답·통계 탭 생성. 다시 실행하면 통계 탭만 새로 그림)
  *  3) 배포 > 새 배포 > 웹 앱 (실행: 나, 액세스: 모든 사용자)
  */
 
@@ -73,7 +73,7 @@ function responsesSheet() {
   return sheet;
 }
 
-/** 한 번만 실행: 응답 탭과 통계 탭을 만듭니다. 다시 실행하면 통계 탭만 새로 그립니다(응답은 그대로). */
+/** 응답 탭과 통계 탭을 만듭니다. 다시 실행하면 통계 탭만 새로 그립니다(응답은 그대로). */
 function setup() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   ss.setSpreadsheetTimeZone(TZ);
@@ -81,84 +81,159 @@ function setup() {
   var old = ss.getSheetByName(STATS);
   if (old) ss.deleteSheet(old);
   var s = ss.insertSheet(STATS, 0);
-  var R = "'" + RESPONSES + "'!";
-  // 기간 조건이 붙은 COUNTIFS. extra는 '범위,조건' 쌍을 이어 붙인 문자열입니다.
-  var count = function (brandCell, extra) {
-    return '=COUNTIFS(' + R + '$B:$B,' + brandCell + ',' + R + '$D:$D,">="&$B$3,' + R + '$D:$D,"<="&$B$4' + (extra ? ',' + extra : '') + ')';
-  };
-  var col = function (i) { return String.fromCharCode(66 + i); }; // B, C
+  s.setHiddenGridlines(true);
 
-  s.getRange('A1').setValue('COFFEE DNA 통계').setFontSize(16).setFontWeight('bold');
-  s.getRange('A2').setValue('기간을 바꾸면 아래 숫자가 모두 다시 계산됩니다. 테스트 시작일(한국 시간) 기준, 테스트 횟수입니다.');
-  s.getRange('A3:B4').setValues([['시작일', new Date(2026, 0, 1)], ['종료일', new Date(2099, 11, 31)]]);
-  s.getRange('B3:B4').setNumberFormat('yyyy-mm-dd').setBackground('#fff2cc');
+  var R = "'" + RESPONSES + "'!";
+  var INK = '#2b2a27', MUTED = '#8a857b', LINE = '#e4dfd5', BAND = '#faf8f3', INPUT = '#fff4cf';
+  var THEME = [{ name: BRANDS[0], color: '#6b3f35', soft: '#f3e9e4' }, { name: BRANDS[1], color: '#3d4a45', soft: '#e7ecea' }];
+  var SOLID = SpreadsheetApp.BorderStyle.SOLID, MEDIUM = SpreadsheetApp.BorderStyle.SOLID_MEDIUM;
+  // 열: A 여백 | B 항목 | C·D·E 모리티아(횟수·비율·막대) | F·G·H 사이드템포 | I 합계 | J 여백
+  var COUNT = ['C', 'F'], WIDE = 8;
+  [18, 220, 80, 70, 150, 80, 70, 150, 80, 18].forEach(function (width, i) { s.setColumnWidth(i + 1, width); });
+  s.getRange(1, 1, 120, 10).setFontFamily('Arial').setFontSize(10).setFontColor(INK).setVerticalAlignment('middle');
+
+  // 기간 조건이 붙은 COUNTIFS. extra는 '범위,조건' 쌍을 이어 붙인 문자열입니다.
+  var count = function (brand, extra) {
+    return 'COUNTIFS(' + R + '$B:$B,"' + brand + '",' + R + '$D:$D,">="&$C$4,' + R + '$D:$D,"<="&$F$4' + (extra ? ',' + extra : '') + ')';
+  };
+  var done = R + '$C:$C,"완료"', undone = R + '$C:$C,"미완료"';
+
+  // 머리말
+  s.getRange(2, 2, 1, WIDE).merge().setValue('COFFEE DNA 통계').setFontSize(20).setFontWeight('bold');
+  s.getRange(3, 2, 1, WIDE).merge().setValue('테스트 시작일(한국 시간) 기준 · 사람 수가 아닌 테스트 횟수 · 노란 칸의 날짜를 바꾸면 전체가 다시 계산됩니다').setFontColor(MUTED);
+  s.getRange('B4').setValue('기간').setFontWeight('bold');
+  s.getRange('C4:D4').merge().setValue(new Date(2026, 0, 1));
+  s.getRange('E4').setValue('부터').setFontColor(MUTED).setHorizontalAlignment('center');
+  s.getRange('F4:G4').merge().setValue(new Date(2099, 11, 31));
+  s.getRange('H4').setValue('까지').setFontColor(MUTED);
+  s.getRange('C4:D4').setBackground(INPUT);
+  s.getRange('F4:G4').setBackground(INPUT);
+  s.getRange('C4:G4').setNumberFormat('yyyy-mm-dd').setHorizontalAlignment('center').setFontWeight('bold');
+  s.getRange('E4').setFontWeight('normal');
+  s.setRowHeight(2, 42);
+  s.setRowHeight(4, 30);
+  s.setFrozenRows(4);
 
   var row = 6;
-  var title = function (text) {
-    s.getRange(row, 1).setValue(text).setFontWeight('bold').setFontSize(12);
-    s.getRange(row + 1, 1, 1, 3).setValues([['', BRANDS[0], BRANDS[1]]]).setFontWeight('bold').setBackground('#eeeeee');
+
+  var section = function (title, note) {
+    s.getRange(row, 2).setValue(title).setFontSize(13).setFontWeight('bold');
+    if (note) s.getRange(row, 3, 1, WIDE - 1).merge().setValue(note).setFontColor(MUTED).setHorizontalAlignment('right');
+    s.getRange(row, 2, 1, WIDE).setBorder(null, null, true, null, null, null, INK, MEDIUM);
+    s.setRowHeight(row, 34);
+    row++;
+  };
+
+  // 머리글 두 줄: 브랜드 이름 / 세부 항목. total이 참이면 합계 열도 그립니다.
+  var head = function (label, sub, total) {
+    s.getRange(row, 2, 2, 1).merge().setValue(label).setFontColor(MUTED);
+    THEME.forEach(function (brand, i) {
+      s.getRange(row, 3 + i * 3, 1, 3).merge().setValue(brand.name).setBackground(brand.color).setFontColor('#ffffff');
+      s.getRange(row + 1, 3 + i * 3, 1, 3).setValues([sub]).setBackground(brand.soft);
+    });
+    if (total) {
+      s.getRange(row, 9).setValue('합계').setBackground(INK).setFontColor('#ffffff');
+      s.getRange(row + 1, 9).setValue('횟수').setBackground('#ecebe8');
+    }
+    s.getRange(row, 3, 2, 7).setFontWeight('bold').setHorizontalAlignment('center');
     row += 2;
   };
 
-  title('참여 현황');
-  var headerRow = row - 1;
-  var summary = [['시작', ''], ['완료', R + '$C:$C,"완료"'], ['미완료', R + '$C:$C,"미완료"']];
-  summary.forEach(function (item) {
-    s.getRange(row, 1).setValue(item[0]);
-    BRANDS.forEach(function (_, i) { s.getRange(row, 2 + i).setFormula(count(col(i) + '$' + headerRow, item[1])); });
+  // 한 줄: 항목 | 브랜드별 횟수·비율·막대 | 합계.
+  // base: 비율의 분모가 되는 셀 주소(브랜드별). from~to: 막대 길이를 비교할 줄 범위.
+  var line = function (label, extra, base, from, to) {
+    s.getRange(row, 2).setValue(label);
+    THEME.forEach(function (brand, i) {
+      var c = COUNT[i], cell = c + row, range = c + '$' + from + ':' + c + '$' + to;
+      s.getRange(row, 3 + i * 3).setFormula('=' + count(brand.name, extra));
+      if (base) s.getRange(row, 4 + i * 3).setFormula('=IF(' + base[i] + '=0,"",' + cell + '/' + base[i] + ')').setNumberFormat('0%').setFontColor(MUTED);
+      s.getRange(row, 5 + i * 3).setFormula('=IF(' + cell + '=0,"",SPARKLINE(' + cell + ',{"charttype","bar";"max",MAX(1,' + range + ');"color1","' + brand.color + '"}))');
+    });
+    s.getRange(row, 9).setFormula('=C' + row + '+F' + row).setFontWeight('bold');
     row++;
-  });
-  s.getRange(row, 1).setValue('완료율');
-  BRANDS.forEach(function (_, i) {
-    s.getRange(row, 2 + i).setFormula('=IF(' + col(i) + (row - 3) + '=0,"",' + col(i) + (row - 2) + '/' + col(i) + (row - 3) + ')').setNumberFormat('0.0%');
-  });
-  row += 2;
+  };
 
-  title('유형 분포 (완료)');
-  headerRow = row - 1;
-  CODES.forEach(function (code) {
-    s.getRange(row, 1).setValue(code);
-    BRANDS.forEach(function (_, i) { s.getRange(row, 2 + i).setFormula(count(col(i) + '$' + headerRow, R + '$J:$J,$A' + row)); });
-    row++;
+  // 표 마무리: 줄 높이, 가운데 정렬, 줄무늬, 가로선
+  var finish = function (from, group) {
+    var size = row - from;
+    s.getRange(from, 2, size, WIDE).setBorder(null, null, true, null, null, true, LINE, SOLID);
+    s.getRange(from, 3, size, 7).setHorizontalAlignment('center');
+    for (var r = from; r < row; r++) {
+      s.setRowHeight(r, 26);
+      if (Math.floor((r - from) / group) % 2) s.getRange(r, 2, 1, WIDE).setBackground(BAND);
+    }
+    row += 2;
+  };
+
+  var table = function (items, base) { // items: [[항목, extra], ...]
+    var from = row, to = row + items.length - 1;
+    items.forEach(function (item) { line(item[0], item[1], base, from, to); });
+    finish(from, 1);
+    return from;
+  };
+
+  // 1. 참여 현황
+  section('참여 현황');
+  head('구분', ['횟수', '비율', ''], true);
+  var top = row;
+  var starts = ['$C$' + top, '$F$' + top];
+  var dones = ['$C$' + (top + 1), '$F$' + (top + 1)], undones = ['$C$' + (top + 2), '$F$' + (top + 2)];
+  table([['시작', ''], ['완료', done], ['미완료', undone]], starts);
+  s.getRange(top, 4).clearContent();
+  s.getRange(top, 7).clearContent();
+
+  // 2. 취향 분포: 결과 코드의 각 자리(바디·풍미·달콤함·스타일)를 셉니다.
+  section('취향 분포', '완료한 테스트의 결과 기준 · 취향마다 두 쪽의 합이 100%');
+  head('취향', ['횟수', '비율', ''], true);
+  var AXES = [
+    ['바디', '진한 커피 (BOLD)', 'B???', '부드러운 커피 (MELLOW)', 'M???'],
+    ['풍미', '산미·과일향 (FRUITY)', '?F??', '고소·초콜릿향 (NUTTY)', '?N??'],
+    ['달콤함', '커피 본연의 맛 (PURE)', '??P?', '달콤한 맛 (SWEET)', '??S?'],
+    ['스타일', '새로운 메뉴 (EXPLORER)', '???E', '익숙한 메뉴 (ROUTINE)', '???R']
+  ];
+  var axisFrom = row;
+  AXES.forEach(function (axis) {
+    var pair = row;
+    line(axis[0] + ' · ' + axis[1], done + ',' + R + '$J:$J,"' + axis[2] + '"', dones, pair, pair + 1);
+    line(axis[0] + ' · ' + axis[3], done + ',' + R + '$J:$J,"' + axis[4] + '"', dones, pair, pair + 1);
   });
-  row++;
+  finish(axisFrom, 2);
 
-  title('이탈 문항 (미완료가 멈춘 문항)');
-  headerRow = row - 1;
-  for (var q = 1; q <= 10; q++) {
-    s.getRange(row, 1).setValue(q);
-    BRANDS.forEach(function (_, i) { s.getRange(row, 2 + i).setFormula(count(col(i) + '$' + headerRow, R + '$C:$C,"미완료",' + R + '$H:$H,$A' + row)); });
-    s.getRange(row, 1).setNumberFormat('"Q"0');
-    row++;
-  }
-  row++;
+  // 3. 유형 분포
+  section('유형 분포', '완료한 테스트 기준');
+  head('유형 코드', ['횟수', '비율', ''], true);
+  table(CODES.map(function (code) { return [code, done + ',' + R + '$J:$J,"' + code + '"']; }), dones);
 
-  title('미완료 종료 사유');
-  headerRow = row - 1;
-  ['처음으로', '시간 초과', '페이지 이탈'].forEach(function (reason) {
-    s.getRange(row, 1).setValue(reason);
-    BRANDS.forEach(function (_, i) { s.getRange(row, 2 + i).setFormula(count(col(i) + '$' + headerRow, R + '$C:$C,"미완료",' + R + '$G:$G,$A' + row)); });
-    row++;
-  });
-  row++;
+  // 4. 이탈 문항
+  section('이탈 문항', '미완료 테스트가 멈춘 문항');
+  head('문항', ['횟수', '비율', ''], true);
+  var quits = [];
+  for (var q = 1; q <= 10; q++) quits.push(['Q' + q, undone + ',' + R + '$H:$H,' + q]);
+  table(quits, undones);
 
-  // 문항별 선택: 브랜드마다 A / B / 건너뜀
-  s.getRange(row, 1).setValue('문항별 선택 (완료)').setFontWeight('bold').setFontSize(12);
-  row++;
-  var head = ['문항'];
-  BRANDS.forEach(function (brand) { ['A', 'B', '건너뜀'].forEach(function (choice) { head.push(brand + ' ' + choice); }); });
-  s.getRange(row, 1, 1, head.length).setValues([head]).setFontWeight('bold').setBackground('#eeeeee');
-  row++;
+  // 5. 미완료 사유
+  section('미완료 사유');
+  head('사유', ['횟수', '비율', ''], true);
+  table(['처음으로', '시간 초과', '페이지 이탈'].map(function (reason) { return [reason, undone + ',' + R + '$G:$G,"' + reason + '"']; }), undones);
+
+  // 6. 문항별 선택: 브랜드마다 A · B · 건너뜀
+  section('문항별 선택', '완료한 테스트 기준');
+  head('문항', ['A', 'B', '건너뜀'], false);
+  var choiceFrom = row;
   for (var n = 1; n <= 10; n++) {
-    s.getRange(row, 1).setValue('Q' + n);
-    var answerColumn = String.fromCharCode(75 + n); // L = Q1
-    BRANDS.forEach(function (brand, i) {
+    s.getRange(row, 2).setValue('Q' + n);
+    var letter = String.fromCharCode(75 + n); // L열 = Q1
+    var answers = R + '$' + letter + ':$' + letter;
+    THEME.forEach(function (brand, i) {
       ['A', 'B', '건너뜀'].forEach(function (choice, j) {
-        s.getRange(row, 2 + i * 3 + j).setFormula(count('"' + brand + '"', R + '$C:$C,"완료",' + R + '$' + answerColumn + ':$' + answerColumn + ',"' + choice + '"'));
+        s.getRange(row, 3 + i * 3 + j).setFormula('=' + count(brand.name, done + ',' + answers + ',"' + choice + '"'));
       });
     });
     row++;
   }
-  s.setColumnWidth(1, 230);
-  s.setFrozenRows(4);
+  finish(choiceFrom, 1);
+
+  if (s.getMaxRows() >= row) s.deleteRows(row, s.getMaxRows() - row + 1);
+  if (s.getMaxColumns() > 10) s.deleteColumns(11, s.getMaxColumns() - 10);
+  s.activate();
 }
