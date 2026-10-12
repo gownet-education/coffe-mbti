@@ -27,7 +27,7 @@ function write(key: string, value: unknown) {
 
 async function post(record: SurveyRecord) {
   // text/plain keeps this a simple request, which Apps Script web apps accept cross-origin.
-  const response = await fetch(SHEET_URL, { method: "POST", body: JSON.stringify(record), signal: AbortSignal.timeout(15000) });
+  const response = await fetch(SHEET_URL, { method: "POST", body: JSON.stringify(record), signal: AbortSignal.timeout(20000) });
   const body = await response.json() as { ok?: boolean };
   if (!body.ok) throw new Error("rejected");
 }
@@ -36,9 +36,11 @@ let flushing: Promise<void> | null = null;
 function flush() {
   flushing ??= (async () => {
     try {
-      for (const record of read<SurveyRecord[]>(QUEUE_KEY, [])) {
+      // Re-read the queue each round so records added while sending are delivered by this same run.
+      for (let record = read<SurveyRecord[]>(QUEUE_KEY, [])[0]; record; record = read<SurveyRecord[]>(QUEUE_KEY, [])[0]) {
         await post(record);
-        write(QUEUE_KEY, read<SurveyRecord[]>(QUEUE_KEY, []).filter(item => item.id !== record.id));
+        const sent = record;
+        write(QUEUE_KEY, read<SurveyRecord[]>(QUEUE_KEY, []).filter(item => item.id !== sent.id));
       }
     } finally { flushing = null; }
   })();
