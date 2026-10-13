@@ -240,3 +240,9 @@ body,.admin-shell{background:#fff}
 .brew-dog{display:block;width:120px;height:auto;animation:brew-dog-hop 1.1s ease-in-out infinite}
 @keyframes brew-dog-hop{0%,100%{transform:translateY(0) rotate(-2deg)}50%{transform:translateY(-8px) rotate(2deg)}}
 @media(prefers-reduced-motion:reduce){.brew-dog{animation:none}}
+
+/* Picking an answer blinks the card, then the next question appears. */
+.answer-card.picked{animation:answer-picked .42s ease-out}
+@keyframes answer-picked{0%{transform:scale(1)}35%{transform:scale(.97);opacity:.55}70%{transform:scale(1.01);opacity:1}100%{transform:scale(1)}}
+.next-hint{display:flex;align-items:center;justify-content:flex-end;min-height:56px;font-size:14px;opacity:.6;text-align:right}
+@media(prefers-reduced-motion:reduce){.answer-card.picked{animation:none}}
