@@ -59,7 +59,7 @@ export default function CoffeeTest(){
   const next=answers.map((v,i)=>i===index?value:v);setAnswers(next);
   // The last question waits for the button: opening the result ends the test.
   if(index===9||!canAdvanceQuestion(next,index))return;
-  setPicked(true);pickTimer.current=setTimeout(()=>{setPicked(false);setIndex(index+1);},420);
+  setPicked(true);pickTimer.current=setTimeout(()=>{setPicked(false);setIndex(index+1);},600);
  }
  useEffect(()=>()=>{if(pickTimer.current)clearTimeout(pickTimer.current);},[]);
  useEffect(()=>{

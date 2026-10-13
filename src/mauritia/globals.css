@@ -335,7 +335,7 @@ html:fullscreen{background:var(--paper);overflow:auto}
 @media(max-width:700px){.admin-data-tools{grid-template-columns:1fr;padding:17px}.admin-data-buttons{width:100%}.admin-data-buttons .admin-data-button{flex:1}.admin-confirm-dialog{padding:22px}.admin-confirm-actions .admin-data-button{flex:1}}
 
 /* Picking an answer blinks the card, then the next question appears. */
-.answer-card.picked{animation:answer-picked .42s ease-out}
+.answer-card.picked{animation:answer-picked .6s ease-out}
 @keyframes answer-picked{0%{transform:scale(1)}35%{transform:scale(.97);opacity:.55}70%{transform:scale(1.01);opacity:1}100%{transform:scale(1)}}
 .next-hint{display:flex;align-items:center;justify-content:flex-end;min-height:56px;font-size:14px;opacity:.6;text-align:right}
 @media(prefers-reduced-motion:reduce){.answer-card.picked{animation:none}}
