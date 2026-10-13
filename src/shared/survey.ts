@@ -34,17 +34,20 @@ async function post(record: SurveyRecord) {
 
 let flushing: Promise<void> | null = null;
 function flush() {
-  flushing ??= (async () => {
-    try {
-      // Re-read the queue each round so records added while sending are delivered by this same run.
-      for (let record = read<SurveyRecord[]>(QUEUE_KEY, [])[0]; record; record = read<SurveyRecord[]>(QUEUE_KEY, [])[0]) {
-        await post(record);
-        const sent = record;
-        write(QUEUE_KEY, read<SurveyRecord[]>(QUEUE_KEY, []).filter(item => item.id !== sent.id));
-      }
-    } finally { flushing = null; }
+  if (flushing) return flushing;
+  const run = (async () => {
+    // Re-read the queue each round so records added while sending are delivered by this same run.
+    for (let record = read<SurveyRecord[]>(QUEUE_KEY, [])[0]; record; record = read<SurveyRecord[]>(QUEUE_KEY, [])[0]) {
+      await post(record);
+      const sent = record;
+      write(QUEUE_KEY, read<SurveyRecord[]>(QUEUE_KEY, []).filter(item => item.id !== sent.id));
+    }
   })();
-  return flushing;
+  flushing = run;
+  // Clear only after the assignment above: an empty queue finishes before it would otherwise be set.
+  const clear = () => { if (flushing === run) flushing = null; };
+  run.then(clear, clear);
+  return run;
 }
 
 /** Queues the record and tries to deliver it. Resolves false while it is still waiting to be sent. */
