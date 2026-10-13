@@ -1,0 +1,12 @@
+.share-box{margin-top:34px;padding:26px 24px;border:1px solid #0000001f;border-radius:10px;background:#ffffffb3;text-align:center}
+.share-box h2{font-size:20px;line-height:1.5;letter-spacing:-.4px}
+.share-box p{margin-top:8px;font-size:15px;line-height:1.7;opacity:.75}
+.share-buttons{display:flex;flex-wrap:wrap;justify-content:center;gap:12px;margin-top:18px}
+.share-button{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:54px;padding:0 26px;font-size:16px;font-weight:600}
+.share-save{border:1px solid currentColor;border-radius:4px;background:transparent}
+.share-message{font-size:14px}
+.share-qr{display:flex;align-items:center;gap:26px;text-align:left}
+.share-qr img{flex-shrink:0;width:168px;height:168px;border-radius:6px;background:#fff;image-rendering:pixelated}
+@media(max-width:600px){.share-buttons{flex-direction:column}.share-button{width:100%}.share-qr{flex-direction:column;text-align:center}}
+a.primary{display:inline-flex;align-items:center;justify-content:center;text-decoration:none}
+.share-test{margin-top:26px}

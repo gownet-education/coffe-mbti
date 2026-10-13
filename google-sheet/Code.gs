@@ -4,6 +4,7 @@
  *  1) 이 내용을 Apps Script 편집기에 붙여 넣고 저장
  *  2) setup 함수를 실행 (응답·통계 탭 생성. 다시 실행하면 통계 탭만 새로 그림)
  *  3) 배포 > 새 배포 > 웹 앱 (실행: 나, 액세스: 모든 사용자)
+ *  doPost 쪽을 고친 뒤에는 배포 관리 > 수정 > 새 버전으로 다시 배포해야 반영됩니다.
  */
 
 var RESPONSES = '응답';
@@ -11,7 +12,9 @@ var STATS = '통계';
 var BRANDS = ['모리티아', '사이드템포'];
 var CODES = ['BFPE', 'BFPR', 'BFSE', 'BFSR', 'BNPE', 'BNPR', 'BNSE', 'BNSR', 'MFPE', 'MFPR', 'MFSE', 'MFSR', 'MNPE', 'MNPR', 'MNSE', 'MNSR'];
 var HEADERS = ['ID', '브랜드', '상태', '날짜', '시작 시각', '종료 시각', '종료 사유', '마지막 문항', '응답 문항 수', '유형 코드', '유형 이름',
-  'Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6', 'Q7', 'Q8', 'Q9', 'Q10', '버전'];
+  'Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6', 'Q7', 'Q8', 'Q9', 'Q10', '버전', '채널', '유입'];
+var CHANNELS = ['매장', '온라인'];
+var SOURCES = ['', 'direct', 'insta', 'share', 'qr'];
 var TZ = 'Asia/Seoul';
 
 function doPost(e) {
@@ -28,7 +31,9 @@ function doPost(e) {
       Utilities.formatDate(started, TZ, 'yyyy-MM-dd HH:mm:ss'),
       Utilities.formatDate(ended, TZ, 'yyyy-MM-dd HH:mm:ss'),
       data.reason, data.lastQuestion, data.answered, data.code, data.typeName]
-      .concat(data.answers).concat([data.version]);
+      .concat(data.answers)
+      // 채널이 없는 요청은 온라인 모드가 생기기 전의 태블릿 화면에서 온 것입니다.
+      .concat([data.version, CHANNELS.indexOf(data.channel) >= 0 ? data.channel : '매장', SOURCES.indexOf(data.source) >= 0 ? data.source : '']);
     // 같은 ID가 다시 오면(재전송) 새 줄을 만들지 않습니다. 완료된 줄은 미완료로 덮어쓰지 않습니다.
     var found = sheet.getRange('A:A').createTextFinder(data.id).matchEntireCell(true).findNext();
     if (!found) sheet.appendRow(row);
@@ -73,11 +78,22 @@ function responsesSheet() {
   return sheet;
 }
 
+/** 응답 탭의 머리글을 최신으로 맞추고, 채널이 비어 있는 예전 줄을 '매장'으로 채웁니다. */
+function upgradeResponses() {
+  var sheet = responsesSheet();
+  sheet.getRange(1, 1, 1, HEADERS.length).setValues([HEADERS]).setFontWeight('bold');
+  var rows = sheet.getLastRow() - 1;
+  if (rows < 1) return;
+  var channelColumn = HEADERS.indexOf('채널') + 1;
+  var range = sheet.getRange(2, channelColumn, rows, 1);
+  range.setValues(range.getValues().map(function (row) { return [row[0] || '매장']; }));
+}
+
 /** 응답 탭과 통계 탭을 만듭니다. 다시 실행하면 통계 탭만 새로 그립니다(응답은 그대로). */
 function setup() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   ss.setSpreadsheetTimeZone(TZ);
-  responsesSheet();
+  upgradeResponses();
   var old = ss.getSheetByName(STATS);
   if (old) ss.deleteSheet(old);
   var s = ss.insertSheet(STATS, 0);
@@ -110,15 +126,15 @@ function setup() {
   s.getRange(1, 1, 130, 15).setFontFamily('Arial').setFontSize(10).setFontColor(INK).setVerticalAlignment('middle');
 
   var letter = function (col) { return String.fromCharCode(64 + col); };
-  // 기간 조건이 붙은 COUNTIFS. extra는 '범위,조건' 쌍을 이어 붙인 문자열입니다.
+  // 기간·채널 조건이 붙은 COUNTIFS. extra는 '범위,조건' 쌍을 이어 붙인 문자열입니다.
   var count = function (brand, extra) {
-    return 'COUNTIFS(' + R + '$B:$B,"' + brand + '",' + R + '$D:$D,">="&$C$4,' + R + '$D:$D,"<="&$F$4' + (extra ? ',' + extra : '') + ')';
+    return 'COUNTIFS(' + R + '$B:$B,"' + brand + '",' + R + '$D:$D,">="&$C$4,' + R + '$D:$D,"<="&$F$4,' + R + '$W:$W,IF($K$4="전체","<>-",$K$4)' + (extra ? ',' + extra : '') + ')';
   };
   var done = R + '$C:$C,"완료"', undone = R + '$C:$C,"미완료"';
 
   // 머리말 (두 브랜드 공통)
   s.getRange(2, 2, 1, 13).merge().setValue('COFFEE DNA 통계').setFontSize(22).setFontWeight('bold');
-  s.getRange(3, 2, 1, 13).merge().setValue('테스트 시작일(한국 시간) 기준 · 사람 수가 아닌 테스트 횟수입니다. 노란 칸의 날짜를 바꾸면 전체가 다시 계산됩니다.').setFontColor(MUTED);
+  s.getRange(3, 2, 1, 13).merge().setValue('테스트 시작일(한국 시간) 기준 · 사람 수가 아닌 테스트 횟수입니다. 노란 칸(기간·채널)을 바꾸면 전체가 다시 계산됩니다.').setFontColor(MUTED);
   s.getRange('B4').setValue('기간').setFontWeight('bold').setHorizontalAlignment('right');
   s.getRange('C4:D4').merge().setValue(new Date(2026, 0, 1)).setBackground(INPUT);
   s.getRange('E4').setValue('부터').setFontColor(MUTED).setHorizontalAlignment('center');
@@ -126,6 +142,11 @@ function setup() {
   s.getRange('C4:G4').setNumberFormat('yyyy-mm-dd').setHorizontalAlignment('center').setFontWeight('bold');
   s.getRange('E4').setFontWeight('normal');
   s.getRange('I4').setValue('까지').setFontColor(MUTED);
+  // 채널: 전체 · 매장(태블릿) · 온라인(인스타·공유 링크)
+  s.getRange('J4').setValue('채널').setFontWeight('bold').setHorizontalAlignment('right');
+  s.getRange('K4:L4').merge().setValue('전체').setBackground(INPUT).setFontWeight('bold').setHorizontalAlignment('center')
+    .setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(['전체'].concat(CHANNELS), true).setAllowInvalid(false).build());
+  s.getRange('M4:N4').merge().setValue('매장 = 태블릿 · 온라인 = 링크').setFontColor(MUTED).setFontSize(9);
   s.setRowHeight(2, 44); s.setRowHeight(4, 30);
   s.setFrozenRows(4);
 
@@ -246,6 +267,14 @@ function setup() {
     var quitItems = [];
     for (var q = 1; q <= 10; q++) quitItems.push(['Q' + q + ' · ' + AXES[QUESTION_AXIS[q - 1]].name, undone + ',' + R + '$H:$H,' + q]);
     var quits = bars(quitItems, dropped);
+    row += 2;
+
+    // 유입 경로
+    section('유입 경로', '온라인으로 시작한 테스트가 어느 링크로 들어왔는지 보여줍니다. 매장 태블릿 테스트는 여기에 포함되지 않습니다.');
+    columns(['들어온 길', '횟수', '비율', '', '', '']);
+    var online = R + '$W:$W,"온라인",' + R + '$X:$X,';
+    bars([['인스타 링크 · ?ch=insta', online + '"insta"'], ['친구가 공유한 결과', online + '"share"'], ['매장 QR로 가져간 뒤', online + '"qr"'], ['표시 없는 직접 접속', online + '"direct"']],
+      '(' + fixed(row, 1) + '+' + fixed(row + 1, 1) + '+' + fixed(row + 2, 1) + '+' + fixed(row + 3, 1) + ')');
     row += 2;
 
     // 미완료 사유

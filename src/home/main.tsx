@@ -2,6 +2,7 @@ import { createRoot } from "react-dom/client";
 import "./home.css";
 import FullscreenControl from "../shared/fullscreen-control";
 import { recoverPending } from "../shared/survey";
+import { isKiosk } from "../shared/mode";
 import mauritiaLogo from "../mauritia/assets/mauritia-logo.png";
 import sidetempoLogo from "../sidetempo/assets/sidetempo-logo.png";
 
@@ -19,7 +20,7 @@ function Home() {
       </nav>
       <p className="home-note">10문항 · 약 2분</p>
     </main>
-    <footer className="home-footer"><FullscreenControl /></footer>
+    {isKiosk() ? <footer className="home-footer"><span className="home-mode">매장 태블릿 모드</span><FullscreenControl /></footer> : null}
   </div>;
 }
 

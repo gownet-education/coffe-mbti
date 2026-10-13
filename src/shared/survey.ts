@@ -13,6 +13,8 @@ export type SurveyRecord = {
   typeName: string;
   answers: string[];
   version: string;
+  channel: string;
+  source: string;
 };
 
 const QUEUE_KEY = "coffee-dna-queue";

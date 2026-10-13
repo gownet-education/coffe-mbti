@@ -2,3 +2,6 @@ node_modules
 dist
 *.tsbuildinfo
 .env*
+# vite.config.ts가 빌드 때마다 만드는 유형별 공유 페이지
+/mauritia/result/
+/sidetempo/result/
