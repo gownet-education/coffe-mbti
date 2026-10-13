@@ -237,6 +237,6 @@ body,.admin-shell{background:#fff}
 }
 
 /* The waiting screen shows the Sidetempo dog instead of an "ST" monogram. */
-.brew-dog{display:block;width:min(260px,60vw);height:auto;animation:brew-dog-hop 1.1s ease-in-out infinite}
-@keyframes brew-dog-hop{0%,100%{transform:translateY(0) rotate(-2deg)}50%{transform:translateY(-14px) rotate(2deg)}}
+.brew-dog{display:block;width:120px;height:auto;animation:brew-dog-hop 1.1s ease-in-out infinite}
+@keyframes brew-dog-hop{0%,100%{transform:translateY(0) rotate(-2deg)}50%{transform:translateY(-8px) rotate(2deg)}}
 @media(prefers-reduced-motion:reduce){.brew-dog{animation:none}}
