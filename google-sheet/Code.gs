@@ -9,6 +9,9 @@
 
 var RESPONSES = '응답';
 var STATS = '통계';
+var LINKS = '링크';
+// 사이트 주소. 저장소 이름이나 도메인을 바꾸면 여기를 고치고 setup을 다시 실행하세요.
+var SITE = 'https://gownet-education.github.io/coffee-mbti/';
 var BRANDS = ['모리티아', '사이드템포'];
 var CODES = ['BFPE', 'BFPR', 'BFSE', 'BFSR', 'BNPE', 'BNPR', 'BNSE', 'BNSR', 'MFPE', 'MFPR', 'MFSE', 'MFSR', 'MNPE', 'MNPR', 'MNSE', 'MNSR'];
 var HEADERS = ['ID', '브랜드', '상태', '날짜', '시작 시각', '종료 시각', '종료 사유', '마지막 문항', '응답 문항 수', '유형 코드', '유형 이름',
@@ -89,7 +92,7 @@ function upgradeResponses() {
   range.setValues(range.getValues().map(function (row) { return [row[0] || '매장']; }));
 }
 
-/** 응답 탭과 통계 탭을 만듭니다. 다시 실행하면 통계 탭만 새로 그립니다(응답은 그대로). */
+/** 응답·통계·링크 탭을 만듭니다. 다시 실행하면 통계와 링크 탭만 새로 그립니다(응답은 그대로). */
 function setup() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   ss.setSpreadsheetTimeZone(TZ);
@@ -310,5 +313,68 @@ function setup() {
 
   if (s.getMaxRows() > lastRow + 1) s.deleteRows(lastRow + 2, s.getMaxRows() - lastRow - 1);
   if (s.getMaxColumns() > 15) s.deleteColumns(16, s.getMaxColumns() - 15);
+  linksSheet();
   s.activate();
+}
+
+/** 링크 탭: 어디에 어떤 주소를 쓰는지 정리합니다. */
+function linksSheet() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var old = ss.getSheetByName(LINKS);
+  if (old) ss.deleteSheet(old);
+  var s = ss.insertSheet(LINKS, ss.getNumSheets());
+  s.setHiddenGridlines(true);
+  var INK = '#2b2a27', MUTED = '#8a857b', LINE = '#e8e3da', SOFT = '#f4f1ea';
+  [16, 190, 520, 110, 330].forEach(function (width, i) { s.setColumnWidth(i + 1, width); });
+  s.getRange(1, 1, 80, 5).setFontFamily('Arial').setFontSize(10).setFontColor(INK).setVerticalAlignment('middle').setWrap(true);
+
+  s.getRange('B2:E2').merge().setValue('COFFEE DNA 링크').setFontSize(22).setFontWeight('bold');
+  s.getRange('B3:E3').merge().setValue('주소를 누르면 열립니다. "시트 기록"은 그 주소로 시작한 테스트가 응답 탭에 채널 / 유입으로 어떻게 남는지입니다.').setFontColor(MUTED);
+  s.setRowHeight(2, 44);
+
+  var row = 5;
+  var group = function (title, note, items) { // items: [[용도, 주소, 시트 기록, 설명]]
+    s.getRange(row, 2, 1, 4).merge().setValue(title).setFontSize(13).setFontWeight('bold')
+      .setBorder(null, null, true, null, null, null, INK, SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
+    s.setRowHeight(row, 34);
+    row++;
+    if (note) { s.getRange(row, 2, 1, 4).merge().setValue(note).setFontColor(MUTED).setFontSize(9); row++; }
+    s.getRange(row, 2, 1, 4).setValues([['용도', '주소', '시트 기록', '설명']]).setFontSize(9).setFontWeight('bold').setFontColor(MUTED).setBackground(SOFT);
+    row++;
+    var from = row;
+    items.forEach(function (item) {
+      s.getRange(row, 2).setValue(item[0]).setFontWeight('bold');
+      s.getRange(row, 3).setValue(SITE + item[1]).setFontColor('#1a5fb4');
+      s.getRange(row, 4).setValue(item[2]);
+      s.getRange(row, 5).setValue(item[3]).setFontColor(MUTED);
+      s.setRowHeight(row, 30);
+      row++;
+    });
+    s.getRange(from, 2, row - from, 4).setBorder(null, null, true, null, null, true, LINE, SpreadsheetApp.BorderStyle.SOLID);
+    row += 2;
+  };
+
+  group('매장 태블릿', '기기마다 처음 한 번만 "켜기" 주소로 엽니다. 그 뒤로는 평소 주소를 띄워 두면 됩니다.', [
+    ['매장 모드 켜기', '?kiosk=1', '매장 / –', '그 기기의 브라우저가 매장 모드로 기억됩니다'],
+    ['평소 띄워 둘 주소', '', '매장 / –', '브랜드 선택 화면. 매장 모드가 켜진 기기에서 사용'],
+    ['매장 모드 끄기', '?kiosk=0', '–', '테스트로 켠 노트북·휴대폰은 이 주소로 해제']
+  ]);
+  group('인스타 (m.site · littly에 넣을 링크)', '?ch=insta를 붙이면 인스타로 들어온 테스트를 따로 셀 수 있습니다. 빼도 테스트는 똑같이 동작합니다.', [
+    ['모리티아', 'mauritia/?ch=insta', '온라인 / insta', ''],
+    ['사이드템포', 'sidetempo/?ch=insta', '온라인 / insta', '']
+  ]);
+  group('표시 없는 기본 주소', '', [
+    ['브랜드 선택', '', '온라인 / direct', '매장 모드가 꺼진 기기에서 열면 온라인으로 기록'],
+    ['모리티아 테스트', 'mauritia/', '온라인 / direct', ''],
+    ['사이드템포 테스트', 'sidetempo/', '온라인 / direct', '']
+  ]);
+  var note = '결과 화면의 "결과 공유하기" 버튼과 매장 태블릿의 QR이 자동으로 만드는 주소입니다. 여기서 "나도 테스트하기"를 누르면 온라인 / share(QR로 온 경우 qr)로 기록됩니다.';
+  BRANDS.forEach(function (brand, i) {
+    var folder = ['mauritia', 'sidetempo'][i];
+    group('유형별 공유 페이지 · ' + brand, note, CODES.map(function (code) { return [code, folder + '/result/' + code + '/', '–', '']; }));
+  });
+
+  if (s.getMaxRows() > row) s.deleteRows(row + 1, s.getMaxRows() - row);
+  if (s.getMaxColumns() > 6) s.deleteColumns(7, s.getMaxColumns() - 6);
+  s.setColumnWidth(6, 16);
 }
