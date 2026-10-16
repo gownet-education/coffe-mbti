@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import "./mode";
 import { ShareActions, shareUrl } from "./share";
+import ScrollHint from "./scroll-hint";
 
 type CoffeeType = { code: string; name: string; subtitle: string; description: string; coffee: string; drink: string; dessert: string; reason: string };
 
@@ -17,6 +18,7 @@ export default function ResultPage({ brand, footer, wordmark, types, cardVersion
   return <div className="site-shell">
     <header className="site-header"><a href={testLink} className="wordmark" aria-label={brand + " 커피 취향 테스트"}>{wordmark}</a><span className="header-label">COFFEE DNA</span></header>
     <main className="result-main">
+      <ScrollHint target=".menu-section" />
       <div className="result-intro"><span className="test-label">커피 DNA</span><p>{brand}에서 발견한 취향</p></div>
       <div className="result-layout">
         <figure className="type-card-figure"><h1 className="sr-only">{type.name} · {type.subtitle}</h1><img src={cardSrc} alt={code + " 커피 유형 카드"} width={4532} height={5481} decoding="async" /></figure>
